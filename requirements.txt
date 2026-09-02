@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+supabase
+scikit-learn==1.2.2
+numpy
+joblib
