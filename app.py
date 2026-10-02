@@ -20,9 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models" / "v2"
 
 MODEL_PATH = MODEL_DIR / "bhasha_character_rf_v2.joblib"
-
 CLASSES_PATH = MODEL_DIR / "bhasha_character_classes_v2.json"
-
 METADATA_PATH = MODEL_DIR / "bhasha_character_model_metadata_v2.json"
 
 
@@ -91,6 +89,8 @@ app = FastAPI(
 allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
 ]
 
 frontend_url = os.environ.get("FRONTEND_URL")
