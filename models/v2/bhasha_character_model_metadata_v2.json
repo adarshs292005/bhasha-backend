@@ -1,0 +1,13 @@
+{
+  "backend_version": "2.0",
+  "model_version": "V1",
+  "model_type": "RandomForestClassifier",
+  "features": 126,
+  "feature_layout": [
+    "left_hand_63",
+    "right_hand_63"
+  ],
+  "classes": 36,
+  "source_model": "/content/drive/MyDrive/Bhasha/character_models/V1/bhasha_character_rf_v1.joblib",
+  "note": "Backend V2 architecture currently uses the Bhasha V1 character model."
+}
