@@ -17,26 +17,13 @@ from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent
 
-MODEL_DIR = (
-    BASE_DIR
-    / "models"
-    / "V2"
-)
+MODEL_DIR = BASE_DIR / "models" / "v2"
 
-MODEL_PATH = (
-    MODEL_DIR
-    / "bhasha_character_rf_v2.joblib"
-)
+MODEL_PATH = MODEL_DIR / "bhasha_character_rf_v2.joblib"
 
-CLASSES_PATH = (
-    MODEL_DIR
-    / "bhasha_character_classes_v2.json"
-)
+CLASSES_PATH = MODEL_DIR / "bhasha_character_classes_v2.json"
 
-METADATA_PATH = (
-    MODEL_DIR
-    / "bhasha_character_model_metadata_v2.json"
-)
+METADATA_PATH = MODEL_DIR / "bhasha_character_model_metadata_v2.json"
 
 
 # ============================================================
@@ -62,19 +49,11 @@ if not METADATA_PATH.exists():
 model = joblib.load(MODEL_PATH)
 
 
-with open(
-    CLASSES_PATH,
-    "r",
-    encoding="utf-8",
-) as file:
+with open(CLASSES_PATH, "r", encoding="utf-8") as file:
     raw_classes = json.load(file)
 
 
-with open(
-    METADATA_PATH,
-    "r",
-    encoding="utf-8",
-) as file:
+with open(METADATA_PATH, "r", encoding="utf-8") as file:
     metadata = json.load(file)
 
 
@@ -114,14 +93,11 @@ allowed_origins = [
     "http://127.0.0.1:5173",
 ]
 
+frontend_url = os.environ.get("FRONTEND_URL")
 
-vercel_origin = os.environ.get(
-    "FRONTEND_URL"
-)
-
-if vercel_origin:
+if frontend_url:
     allowed_origins.append(
-        vercel_origin.rstrip("/")
+        frontend_url.rstrip("/")
     )
 
 
@@ -135,7 +111,7 @@ app.add_middleware(
 
 
 # ============================================================
-# REQUEST MODELS
+# REQUEST MODEL
 # ============================================================
 
 class PredictionRequest(BaseModel):
