@@ -2,4 +2,5 @@ venv/
 .env
 __pycache__/
 *.joblib
+!models/word/bhasha_word_rf.joblib
 .ipynb_checkpoints/
