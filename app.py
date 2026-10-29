@@ -1,3 +1,4 @@
+
 import json
 import os
 from pathlib import Path
@@ -12,11 +13,10 @@ from pydantic import BaseModel, Field
 
 
 # ============================================================
-# PATHS
+# PATHS AND MODEL LOADING
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
-
 MODEL_DIR = BASE_DIR / "models" / "v2"
 
 MODEL_PATH = MODEL_DIR / "bhasha_character_rf_v2.joblib"
@@ -24,47 +24,35 @@ CLASSES_PATH = MODEL_DIR / "bhasha_character_classes_v2.json"
 METADATA_PATH = MODEL_DIR / "bhasha_character_model_metadata_v2.json"
 
 
-# ============================================================
-# LOAD MODEL
-# ============================================================
-
-if not MODEL_PATH.exists():
-    raise FileNotFoundError(
-        f"Model file not found: {MODEL_PATH}"
-    )
-
-if not CLASSES_PATH.exists():
-    raise FileNotFoundError(
-        f"Classes file not found: {CLASSES_PATH}"
-    )
-
-if not METADATA_PATH.exists():
-    raise FileNotFoundError(
-        f"Metadata file not found: {METADATA_PATH}"
-    )
+# Check required files
+for file_path in [MODEL_PATH, CLASSES_PATH, METADATA_PATH]:
+    if not file_path.exists():
+        raise FileNotFoundError(
+            f"Required file not found: {file_path}"
+        )
 
 
+# Load trained model
 model = joblib.load(MODEL_PATH)
 
 
+# Load class labels
 with open(CLASSES_PATH, "r", encoding="utf-8") as file:
     raw_classes = json.load(file)
 
 
+# Load model metadata
 with open(METADATA_PATH, "r", encoding="utf-8") as file:
     metadata = json.load(file)
 
 
-# ============================================================
-# CLASS MAPPING
-# ============================================================
-
+# Support dictionary or list class formats
 if isinstance(raw_classes, dict):
     classes = [
         label
         for label, index in sorted(
             raw_classes.items(),
-            key=lambda item: item[1],
+            key=lambda item: item[1]
         )
     ]
 else:
@@ -72,18 +60,21 @@ else:
 
 
 # ============================================================
-# FASTAPI APP
+# FASTAPI APPLICATION
 # ============================================================
 
 app = FastAPI(
     title="Bhasha ML Backend",
-    description="Bhasha Indian Sign Language character recognition API",
+    description=(
+        "Bhasha Indian Sign Language character "
+        "recognition API"
+    ),
     version="2.0.0",
 )
 
 
 # ============================================================
-# CORS
+# CORS CONFIGURATION
 # ============================================================
 
 allowed_origins = [
@@ -93,12 +84,12 @@ allowed_origins = [
     "http://127.0.0.1:8080",
 ]
 
+# Add deployed frontend URL through the FRONTEND_URL
+# environment variable when it is available.
 frontend_url = os.environ.get("FRONTEND_URL")
 
 if frontend_url:
-    allowed_origins.append(
-        frontend_url.rstrip("/")
-    )
+    allowed_origins.append(frontend_url.rstrip("/"))
 
 
 app.add_middleware(
@@ -111,25 +102,25 @@ app.add_middleware(
 
 
 # ============================================================
-# REQUEST MODEL
+# REQUEST VALIDATION
 # ============================================================
 
 class PredictionRequest(BaseModel):
     features: List[float] = Field(
         ...,
         min_length=126,
-        max_length=126,
+        max_length=126
     )
 
     hand_count: int = Field(
         ...,
         ge=1,
-        le=2,
+        le=2
     )
 
 
 # ============================================================
-# ROOT
+# ROOT ENDPOINT
 # ============================================================
 
 @app.get("/")
@@ -140,7 +131,7 @@ def root():
         "backend_version": "2.0",
         "model_version": metadata.get(
             "model_version",
-            "unknown",
+            "unknown"
         ),
         "features": 126,
         "classes": len(classes),
@@ -148,7 +139,7 @@ def root():
 
 
 # ============================================================
-# HEALTH
+# HEALTH CHECK
 # ============================================================
 
 @app.get("/api/v2/health")
@@ -159,7 +150,7 @@ def health():
         "model_loaded": model is not None,
         "model_version": metadata.get(
             "model_version",
-            "unknown",
+            "unknown"
         ),
         "features": 126,
         "classes": len(classes),
@@ -167,7 +158,7 @@ def health():
 
 
 # ============================================================
-# MODEL INFO
+# MODEL INFORMATION
 # ============================================================
 
 @app.get("/api/v2/model-info")
@@ -176,11 +167,11 @@ def model_info():
         "backend_version": "2.0",
         "model_version": metadata.get(
             "model_version",
-            "unknown",
+            "unknown"
         ),
         "model_type": metadata.get(
             "model_type",
-            "RandomForestClassifier",
+            "RandomForestClassifier"
         ),
         "features": 126,
         "classes": len(classes),
@@ -189,12 +180,13 @@ def model_info():
 
 
 # ============================================================
-# PREDICTION
+# CHARACTER PREDICTION
 # ============================================================
 
 @app.post("/api/v2/predict")
 def predict(request: PredictionRequest):
 
+    # Validate feature count
     if len(request.features) != 126:
         raise HTTPException(
             status_code=400,
@@ -204,17 +196,20 @@ def predict(request: PredictionRequest):
             ),
         )
 
+    # Validate hand count
     if request.hand_count not in (1, 2):
         raise HTTPException(
             status_code=400,
             detail="hand_count must be 1 or 2.",
         )
 
+    # Convert features to NumPy array
     features = np.asarray(
         request.features,
-        dtype=np.float32,
+        dtype=np.float32
     ).reshape(1, -1)
 
+    # Reject invalid numerical values
     if not np.isfinite(features).all():
         raise HTTPException(
             status_code=400,
@@ -222,10 +217,10 @@ def predict(request: PredictionRequest):
         )
 
     try:
-        probabilities = model.predict_proba(
-            features
-        )[0]
+        # Predict class probabilities
+        probabilities = model.predict_proba(features)[0]
 
+        # Find highest-probability prediction
         predicted_index = int(
             np.argmax(probabilities)
         )
@@ -234,16 +229,17 @@ def predict(request: PredictionRequest):
             probabilities[predicted_index]
         )
 
+        # Validate predicted class index
         if predicted_index >= len(classes):
             raise HTTPException(
                 status_code=500,
                 detail="Model class index is invalid.",
             )
 
-        label = str(
-            classes[predicted_index]
-        )
+        # Get predicted character label
+        label = str(classes[predicted_index])
 
+        # Accept predictions at or above 50% confidence
         accepted = confidence >= 0.50
 
         return {
@@ -252,7 +248,7 @@ def predict(request: PredictionRequest):
             "accepted": accepted,
             "model_version": metadata.get(
                 "model_version",
-                "unknown",
+                "unknown"
             ),
             "backend_version": "2.0",
         }
@@ -261,10 +257,7 @@ def predict(request: PredictionRequest):
         raise
 
     except Exception as error:
-        print(
-            "Prediction error:",
-            repr(error),
-        )
+        print("Prediction error:", repr(error))
 
         raise HTTPException(
             status_code=500,
@@ -273,19 +266,15 @@ def predict(request: PredictionRequest):
 
 
 # ============================================================
-# START SERVER
+# SERVER STARTUP
 # ============================================================
 
 if __name__ == "__main__":
-    port = int(
-        os.environ.get(
-            "PORT",
-            "8000",
-        )
-    )
+    port = int(os.environ.get("PORT", "7860"))
 
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=port,
     )
+
